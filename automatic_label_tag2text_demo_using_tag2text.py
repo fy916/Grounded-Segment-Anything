@@ -215,7 +215,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Grounded-Segment-Anything Demo", add_help=True)
     parser.add_argument("--config", type=str, required=True, help="path to config file")
     parser.add_argument(
-        "--tag2text_checkpoint", type=str, help="path to checkpoint file"
+        "--tag2text_checkpoint", type=str, required=True, help="path to checkpoint file"
     )
     parser.add_argument(
         "--grounded_checkpoint", type=str, required=True, help="path to checkpoint file"
@@ -237,9 +237,6 @@ if __name__ == "__main__":
 
     parser.add_argument("--device", type=str, default="cpu", help="running on cpu only!, default=False")
     parser.add_argument("--cam", type=int, default=0)
-    parser.add_argument("--tags", type=str, required=True)
-    parser.add_argument("--caption", type=str, required=True)
-    
 
     args = parser.parse_args()
 
@@ -282,36 +279,34 @@ if __name__ == "__main__":
         TS.ToTensor(), normalize
     ])
 
-    # # filter out attributes and action categories which are difficult to grounding
-    # delete_tag_index = []
-    # for i in range(3012, 3429):
-    #     delete_tag_index.append(i)
+    # filter out attributes and action categories which are difficult to grounding
+    delete_tag_index = []
+    for i in range(3012, 3429):
+        delete_tag_index.append(i)
 
-    # specified_tags = 'None'
-    # # load model
-    # tag2text_model = tag2text.tag2text_caption(pretrained=tag2text_checkpoint,
-    #                                            image_size=384,
-    #                                            vit='swin_b',
-    #                                            delete_tag_index=delete_tag_index)
-    # # threshold for tagging
-    # # we reduce the threshold to obtain more tags
-    # tag2text_model.threshold = 0.64
-    # tag2text_model.eval()
+    specified_tags = 'None'
+    # load model
+    tag2text_model = tag2text.tag2text_caption(pretrained=tag2text_checkpoint,
+                                               image_size=384,
+                                               vit='swin_b',
+                                               delete_tag_index=delete_tag_index)
+    # threshold for tagging
+    # we reduce the threshold to obtain more tags
+    tag2text_model.threshold = 0.64
+    tag2text_model.eval()
 
-    # tag2text_model = tag2text_model.to(device)
-    # raw_image = image_pil.resize(
-    #     (384, 384))
-    # raw_image = transform(raw_image).unsqueeze(0).to(device)
+    tag2text_model = tag2text_model.to(device)
+    raw_image = image_pil.resize(
+        (384, 384))
+    raw_image = transform(raw_image).unsqueeze(0).to(device)
 
-    # res = inference.inference(raw_image, tag2text_model, specified_tags)
+    res = inference.inference(raw_image, tag2text_model, specified_tags)
 
     # Currently ", " is better for detecting single tags
     # while ". " is a little worse in some case
-    # text_prompt = res[0].replace(' |', ',')
-    # caption = res[2]
+    text_prompt = res[0].replace(' |', ',')
+    caption = res[2]
 
-    caption = args.caption
-    text_prompt = args.tags
     print(f"Caption: {caption}")
     print(f"Tags: {text_prompt}")
 
