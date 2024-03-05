@@ -172,7 +172,7 @@ def show_box(box, ax, label):
     ax.text(x0, y0, label)
 
 
-def save_mask_data(output_dir, caption, mask_list, box_list, label_list, camid):
+def save_mask_data(output_dir, caption, mask_list, box_list, label_list, camid, file_base_name):
     value = 0  # 0 for background
 
     mask_img = torch.zeros(mask_list.shape[-2:])
@@ -182,7 +182,7 @@ def save_mask_data(output_dir, caption, mask_list, box_list, label_list, camid):
     plt.imshow(mask_img.numpy())
     plt.axis('off')
 
-    mask_img_path = "mask_img_cam" + str(camid) + ".jpg"
+    mask_img_path = file_base_name + "mask_img.jpg"
 
     plt.savefig(os.path.join(output_dir, mask_img_path), bbox_inches="tight", dpi=300, pad_inches=0.0)
 
@@ -204,7 +204,7 @@ def save_mask_data(output_dir, caption, mask_list, box_list, label_list, camid):
             'box': box.numpy().tolist(),
         })
 
-    json_file_name = "label" + str(camid) + ".json"
+    json_file_name = file_base_name+"label.json"
 
     with open(os.path.join(output_dir, json_file_name), 'w') as f:
         json.dump(json_data, f)
@@ -239,6 +239,7 @@ if __name__ == "__main__":
     parser.add_argument("--cam", type=int, default=0)
     parser.add_argument("--tags", type=str, required=True)
     parser.add_argument("--caption", type=str, required=True)
+    parser.add_argument("--output_file_name", type=str, required=True)
     
 
     args = parser.parse_args()
@@ -258,6 +259,8 @@ if __name__ == "__main__":
     iou_threshold = args.iou_threshold
     device = args.device
     camid = args.cam
+    file_base_name = args.output_file_name
+
 
     # ChatGPT or nltk is required when using captions
     # openai.api_key = openai_key
@@ -272,7 +275,7 @@ if __name__ == "__main__":
     model = load_model(config_file, grounded_checkpoint, device=device)
 
     # visualize raw image
-    image_pil.save(os.path.join(output_dir, "raw_image.jpg"))
+    image_pil.save(os.path.join(output_dir, file_base_name+"raw_image.jpg"))
 
     # initialize Tag2Text
     normalize = TS.Normalize(mean=[0.485, 0.456, 0.406],
@@ -310,10 +313,31 @@ if __name__ == "__main__":
     # text_prompt = res[0].replace(' |', ',')
     # caption = res[2]
 
-    caption = args.caption
-    text_prompt = args.tags
+
+
+    # Read caption file
+    if args.caption:
+        with open(args.caption, "r") as caption_file:
+            caption = caption_file.read().replace('\n', ' ')
+    else:
+        caption = ""
+
+    # Read tags file
+    if args.tags:
+        with open(args.tags, "r") as tags_file:
+            text_prompt = tags_file.read().replace('\n', ' ')
+    else:
+        text_prompt = ""
+
+
+
+
+
+
     print(f"Caption: {caption}")
     print(f"Tags: {text_prompt}")
+
+
 
     # run grounding dino model
     boxes_filt, scores, pred_phrases = get_grounding_output(
@@ -365,7 +389,7 @@ if __name__ == "__main__":
 
     import pickle
 
-    mask_file_name = os.path.join(output_dir, "mask" + str(camid) + ".pkl")
+    mask_file_name = os.path.join(output_dir, file_base_name+"mask.pkl")
     with open(mask_file_name, 'wb') as f:
         pickle.dump(new_mask, f)
         full_path = os.path.abspath(mask_file_name)
@@ -374,14 +398,14 @@ if __name__ == "__main__":
     for box, label in zip(boxes_filt, pred_phrases):
         show_box(box.numpy(), plt.gca(), label)
 
-    plt.title('Tag2Text-Captioning: ' + caption + '\n' + 'Tag2Text-Tagging' + text_prompt + '\n')
+    # plt.title('Tag2Text-Captioning: ' + caption + '\n' + 'Tag2Text-Tagging' + text_prompt + '\n')
     plt.axis('off')
 
-    img_with_label_path = "labelled_img_cam" + str(camid) + ".jpg"
+    img_with_label_path = file_base_name+"labelled.jpg"
 
     plt.savefig(
         os.path.join(output_dir, img_with_label_path),
         bbox_inches="tight", dpi=300, pad_inches=0.0
     )
 
-    save_mask_data(output_dir, caption, masks, boxes_filt, pred_phrases, camid)
+    save_mask_data(output_dir, caption, masks, boxes_filt, pred_phrases, camid, file_base_name)
